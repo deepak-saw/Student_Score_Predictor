@@ -3,27 +3,71 @@ import joblib
 import pandas as pd
 import json
 import os
+import plotly.express as px
+import plotly.graph_objects as go
+
+st.set_page_config(
+    page_title="Student Dashboard",
+    page_icon="🎓",
+    layout="wide"
+)
+
+# =========================
+# CUSTOM CSS
+# =========================
+st.markdown("""
+<style>
+
+.stApp {
+    background: linear-gradient(to right, #141e30, #243b55);
+    color: white;
+}
+
+.main-title {
+    font-size: 45px;
+    font-weight: bold;
+    text-align: center;
+    color: #00ffd5;
+}
+
+.card {
+    background-color: rgba(255,255,255,0.08);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0px 0px 15px rgba(0,255,255,0.3);
+    margin-bottom: 20px;
+}
+
+.metric-card {
+    background: linear-gradient(135deg,#00c6ff,#0072ff);
+    padding: 20px;
+    border-radius: 18px;
+    text-align:center;
+    color:white;
+    font-size:20px;
+    font-weight:bold;
+}
+
+.sidebar .sidebar-content {
+    background: #111827;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # =========================
 # USER FILE
 # =========================
 USER_FILE = "users.json"
 
-# Create file if not exists
 if not os.path.exists(USER_FILE):
     with open(USER_FILE, "w") as f:
         json.dump({}, f)
 
-# =========================
-# LOAD USERS
-# =========================
 def load_users():
     with open(USER_FILE, "r") as f:
         return json.load(f)
 
-# =========================
-# SAVE USERS
-# =========================
 def save_users(users):
     with open(USER_FILE, "w") as f:
         json.dump(users, f)
@@ -38,47 +82,45 @@ if "username" not in st.session_state:
     st.session_state.username = ""
 
 # =========================
-# LOGIN / SIGNUP PAGE
+# LOGIN SYSTEM
 # =========================
 if not st.session_state.logged_in:
 
-    st.title("🔐 Student Score Predictor Login System")
+    st.markdown('<p class="main-title">🎓 Student Predictor Portal</p>', unsafe_allow_html=True)
 
     menu = st.sidebar.selectbox("Menu", ["Login", "Sign Up"])
 
     users = load_users()
 
-    # =========================
-    # SIGN UP
-    # =========================
     if menu == "Sign Up":
 
-        st.subheader("Create New Account")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+        st.subheader("📝 Create Account")
 
         new_user = st.text_input("Username")
         new_pass = st.text_input("Password", type="password")
 
-        if st.button("Sign Up"):
+        if st.button("Create Account"):
 
             if new_user in users:
-                st.error("⚠ Username already exists!")
+                st.error("Username already exists!")
 
             elif new_user == "" or new_pass == "":
-                st.warning("Please enter username and password")
+                st.warning("Enter all fields")
 
             else:
                 users[new_user] = new_pass
                 save_users(users)
+                st.success("Account Created Successfully!")
 
-                st.success("✅ Account created successfully!")
-                st.info("Go to Login Page")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # =========================
-    # LOGIN
-    # =========================
-    elif menu == "Login":
+    else:
 
-        st.subheader("Login")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+        st.subheader("🔐 Login")
 
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -86,108 +128,140 @@ if not st.session_state.logged_in:
         if st.button("Login"):
 
             if username in users and users[username] == password:
-                st.success("✅ Login Successful")
 
                 st.session_state.logged_in = True
                 st.session_state.username = username
-
+                st.success("Login Successful")
                 st.rerun()
 
             else:
-                st.error("❌ Invalid Username or Password")
+                st.error("Invalid Credentials")
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================
-# MAIN APP AFTER LOGIN
+# MAIN DASHBOARD
 # =========================
 else:
 
-    # =========================
-    # LOAD MODEL
-    # =========================
     model = joblib.load("student_model.pkl")
     columns = joblib.load("model_columns.pkl")
 
-    # =========================
-    # SIDEBAR
-    # =========================
-    st.sidebar.success(f"👋 Welcome {st.session_state.username}")
+    # Sidebar
+    st.sidebar.image(
+        "https://cdn-icons-png.flaticon.com/512/3135/3135755.png",
+        width=120
+    )
+
+    st.sidebar.success(f"Welcome {st.session_state.username}")
 
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
-        st.session_state.username = ""
         st.rerun()
 
-    # =========================
-    # TITLE
-    # =========================
-    st.title("🎓 Student Score Predictor")
+    # Header
+    st.markdown('<p class="main-title">📊 Student Performance Dashboard</p>', unsafe_allow_html=True)
 
-    # =========================
-    # INPUT FIELDS
-    # =========================
-    hours = st.number_input("Hours Studied", 0.0, 24.0)
-    attendance = st.number_input("Attendance", 0.0, 100.0)
-    previous = st.number_input("Previous Score", 0.0, 100.0)
-    sleep = st.number_input("Sleep Hours", 0.0, 12.0)
+    # Metrics Row
+    col1, col2, col3 = st.columns(3)
 
-    motivation = st.selectbox("Motivation Level", ["Low", "Medium", "High"])
-    teacher = st.selectbox("Teacher Quality", ["Poor", "Average", "Good"])
-    school = st.selectbox("School Type", ["Public", "Private"])
-    internet = st.selectbox("Internet Access", ["Yes", "No"])
-    income = st.selectbox("Family Income", ["Low", "Medium", "High"])
-    parent = st.selectbox("Parental Involvement", ["Low", "Medium", "High"])
-    education = st.selectbox("Parent Education", ["School", "College"])
-    peer = st.selectbox("Peer Influence", ["Negative", "Neutral", "Positive"])
-    resources = st.selectbox("Learning Resources", ["Low", "Medium", "High"])
-    activities = st.selectbox("Extracurricular Activities", ["Yes", "No"])
+    with col1:
+        st.markdown(
+            '<div class="metric-card">📚 AI Powered Prediction</div>',
+            unsafe_allow_html=True
+        )
 
-    # =========================
-    # PREDICTION BUTTON
-    # =========================
-    if st.button("Predict Score"):
+    with col2:
+        st.markdown(
+            '<div class="metric-card">⚡ Real-time Analytics</div>',
+            unsafe_allow_html=True
+        )
 
-        # Create input dictionary
+    with col3:
+        st.markdown(
+            '<div class="metric-card">🎯 Smart Accuracy</div>',
+            unsafe_allow_html=True
+        )
+
+    st.write("")
+
+    # Input Form
+    col1, col2 = st.columns(2)
+
+    with col1:
+        hours = st.slider("Hours Studied", 0, 24, 5)
+        attendance = st.slider("Attendance %", 0, 100, 75)
+        previous = st.slider("Previous Score", 0, 100, 60)
+        sleep = st.slider("Sleep Hours", 0, 12, 7)
+
+    with col2:
+        motivation = st.selectbox("Motivation", ["Low", "Medium", "High"])
+        teacher = st.selectbox("Teacher Quality", ["Poor", "Average", "Good"])
+        school = st.selectbox("School Type", ["Public", "Private"])
+        internet = st.selectbox("Internet Access", ["Yes", "No"])
+
+    if st.button("🚀 Predict Score"):
+
         data = {
             "Hours_Studied": hours,
             "Attendance": attendance,
             "Previous_Scores": previous,
             "Sleep_Hours": sleep,
-
             "Motivation_Level": motivation,
             "Teacher_Quality": teacher,
             "School_Type": school,
-            "Internet_Access": internet,
-            "Family_Income": income,
-            "Parental_Involvement": parent,
-            "Parental_Education_Level": education,
-            "Peer_Influence": peer,
-            "Learning_Resources": resources,
-            "Extracurricular_Activities": activities
+            "Internet_Access": internet
         }
 
-        # Convert to DataFrame
         input_df = pd.DataFrame([data])
 
-        # Apply encoding
         input_df = pd.get_dummies(input_df)
 
-        # Match training columns
         input_df = input_df.reindex(columns=columns, fill_value=0)
 
-        # =========================
-        # PREDICT
-        # =========================
         prediction = model.predict(input_df)
 
-        # =========================
-        # FIX UNREALISTIC VALUES
-        # =========================
         final_score = max(40, min(100, prediction[0]))
-
-        # Convert to integer
         final_score = int(round(final_score))
 
-        # =========================
-        # OUTPUT
-        # =========================
-        st.success(f"🎯 Predicted Exam Score: {final_score}")
+        # Result Card
+        st.markdown(f"""
+        <div class="card">
+            <h1 style='text-align:center;color:#00ffd5;'>
+                🎯 Predicted Score: {final_score}
+            </h1>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Gauge Chart
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=final_score,
+            title={'text': "Performance"},
+            gauge={
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "cyan"},
+                'steps': [
+                    {'range': [0, 40], 'color': "red"},
+                    {'range': [40, 70], 'color': "orange"},
+                    {'range': [70, 100], 'color': "green"},
+                ],
+            }
+        ))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Analytics Chart
+        chart_data = pd.DataFrame({
+            "Features": ["Study", "Attendance", "Previous", "Sleep"],
+            "Values": [hours, attendance, previous, sleep]
+        })
+
+        bar_fig = px.bar(
+            chart_data,
+            x="Features",
+            y="Values",
+            title="Student Analytics"
+        )
+
+        st.plotly_chart(bar_fig, use_container_width=True)
