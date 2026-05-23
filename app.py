@@ -1,13 +1,15 @@
-
-# ─────────────────────────────────────────
-#  profile_widget.py
-#  Usage in app.py: from profile_widget import show_profile_widget
-# ─────────────────────────────────────────
-
 import streamlit as st
 import json
 import os
+import joblib
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime
 
+# ─────────────────────────────────────────────────────────────────────────
+#  PART 1: COMMON UTILITIES & PROFILE WIDGET (Originally profile_widget.py)
+# ─────────────────────────────────────────────────────────────────────────
 
 def load_json(path):
     if not os.path.exists(path):
@@ -60,32 +62,8 @@ PROFILE_CSS = """
 .pd-info-row { display: flex; gap: 6px; font-size: 12px; color: #6b7a99; margin-bottom: 5px; }
 .pd-info-row span { color: #9aa3b5; }
 .pd-divider { height: 1px; background: rgba(255,255,255,.07); margin: 14px 0; }
-.pd-btn {
-    width: 100%; padding: 9px 14px; border-radius: 10px; font-size: 13px;
-    font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 9px;
-    transition: background .2s; background: transparent;
-    border: 1px solid rgba(255,255,255,.07); color: #dce3f0; margin-bottom: 6px;
-}
-.pd-btn:hover { background: rgba(255,255,255,.06); }
-.pd-btn-danger { border-color: rgba(255,94,122,.25); color: #ff6b8a; }
-.pd-btn-danger:hover { background: rgba(255,94,122,.08); }
-.theme-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 14px; border-radius: 10px;
-    border: 1px solid rgba(255,255,255,.07); margin-bottom: 6px;
-    font-size: 13px; color: #dce3f0;
-}
-.theme-icons { display:flex; gap:6px; }
-.theme-icon {
-    width: 28px; height: 28px; border-radius: 8px;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:14px; transition: background .2s;
-}
-.theme-icon:hover { background: rgba(255,255,255,.1); }
-.theme-icon.active { background: rgba(0,255,213,.15); border: 1px solid rgba(0,255,213,.3); }
 </style>
 """
-
 
 def show_profile_widget():
     st.markdown(PROFILE_CSS, unsafe_allow_html=True)
@@ -103,7 +81,7 @@ def show_profile_widget():
         full_name = profile.get("full_name", username)
 
     parts    = full_name.strip().split()
-    initials = (parts[0][0] + (parts[-1][0] if len(parts) > 1 else "")).upper()
+    initials = (parts[0][0] + (parts[-1][0] if len(parts) > 1 else "")).upper() if parts else "??"
 
     if "app_theme" not in st.session_state:
         st.session_state.app_theme = "dark"
@@ -114,6 +92,7 @@ def show_profile_widget():
     with btn_col:
         if st.button(initials, key="profile_avatar_btn", help="Profile & Settings"):
             st.session_state.profile_open = not st.session_state.profile_open
+            st.rerun()
 
     st.markdown("""
     <style>
@@ -165,6 +144,7 @@ def show_profile_widget():
                 if st.button("✏️  Edit Profile", key="open_edit_profile", use_container_width=True):
                     st.session_state.edit_profile_open = True
                     st.session_state.profile_open      = False
+                    st.rerun()
             with col_b:
                 theme_label = "🌙 Dark" if st.session_state.app_theme == "dark" else "☀️ Light"
                 if st.button(theme_label, key="toggle_theme_btn", use_container_width=True):
@@ -237,13 +217,15 @@ def _show_edit_modal(username, role, profile, students, parents):
                 cancel_btn = st.form_submit_button("✕  Cancel", use_container_width=True)
 
             if save_btn:
+                if username not in students:
+                    students[username] = {}
                 students[username].update({
                     "full_name": new_name, "age": new_age, "class_grade": new_class,
                     "section": new_section, "roll_no": new_roll, "school_name": new_school,
                 })
                 save_json("students.json", students)
                 st.session_state.edit_profile_open = False
-                st.success("✅ Profile updated successfully!")
+                st.toast("✅ Profile updated successfully!")
                 st.rerun()
             if cancel_btn:
                 st.session_state.edit_profile_open = False
@@ -255,11 +237,10 @@ def _show_edit_modal(username, role, profile, students, parents):
                 new_name  = st.text_input("Full Name",    value=profile.get("full_name", ""))
                 new_phone = st.text_input("Phone Number", value=profile.get("phone", ""))
             with c2:
-                new_relation = st.selectbox(
-                    "Relation with Child", ["Father", "Mother", "Guardian"],
-                    index=["Father","Mother","Guardian"].index(profile.get("relation","Guardian"))
-                    if profile.get("relation","Guardian") in ["Father","Mother","Guardian"] else 2
-                )
+                current_relation = profile.get("relation", "Guardian")
+                options = ["Father", "Mother", "Guardian"]
+                default_idx = options.index(current_relation) if current_relation in options else 2
+                new_relation = st.selectbox("Relation with Child", options, index=default_idx)
 
             col_save, col_cancel = st.columns(2)
             with col_save:
@@ -268,42 +249,37 @@ def _show_edit_modal(username, role, profile, students, parents):
                 cancel_btn = st.form_submit_button("✕  Cancel", use_container_width=True)
 
             if save_btn:
+                if username not in parents:
+                    parents[username] = {"children": []}
                 parents[username].update({
                     "full_name": new_name, "phone": new_phone, "relation": new_relation,
                 })
                 save_json("parents.json", parents)
                 st.session_state.edit_profile_open = False
-                st.success("✅ Profile updated successfully!")
+                st.toast("✅ Profile updated successfully!")
                 st.rerun()
             if cancel_btn:
                 st.session_state.edit_profile_open = False
                 st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
-# ─────────────────────────────────────────
-#  student_dashboard.py
-#  Usage in app.py: from student_dashboard import show_student_dashboard
-# ─────────────────────────────────────────
 
-import streamlit as st
-import joblib
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime
-import json
-import os
 
-from profile_widget import show_profile_widget, load_json, save_json
-
+# ─────────────────────────────────────────────────────────────────────────
+#  PART 2: STUDENT DASHBOARD PORTAL (Originally student_dashboard.py)
+# ─────────────────────────────────────────────────────────────────────────
 
 def show_student_dashboard():
     username = st.session_state.username
     students = load_json("students.json")
     profile  = students.get(username, {})
 
-    model   = joblib.load("student_model.pkl")
-    columns = joblib.load("model_columns.pkl")
+    try:
+        model   = joblib.load("student_model.pkl")
+        columns = joblib.load("model_columns.pkl")
+    except Exception as e:
+        st.error(f"Failed to load model files: {e}")
+        return
 
     show_profile_widget()
 
@@ -324,7 +300,7 @@ def show_student_dashboard():
     st.sidebar.caption("📊 Trained on 12K+ records")
     st.sidebar.caption("⚡ Real-time predictions")
     st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
+    if st.sidebar.button("🚪 Logout", key="student_logout"):
         for k in ["logged_in", "username", "user_role"]:
             st.session_state[k] = False if k == "logged_in" else ""
         st.rerun()
@@ -369,46 +345,67 @@ def show_student_dashboard():
 
     st.write("")
 
-    # ── Inputs ──
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        st.markdown('<div class="input-card"><div class="input-section-title">📐 Academic Inputs</div>', unsafe_allow_html=True)
-        hours      = st.slider("📚 Hours Studied (per day)", 0, 24, 5)
-        attendance = st.slider("🏫 Attendance (%)", 0, 100, 75)
-        previous   = st.slider("📋 Previous Score", 0, 100, 60)
-        sleep      = st.slider("😴 Sleep Hours", 0, 12, 7)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="input-card"><div class="input-section-title">🎛️ Environmental Factors</div>', unsafe_allow_html=True)
-        motivation = st.selectbox("💪 Motivation Level", ["Low", "Medium", "High"])
-        teacher    = st.selectbox("👨‍🏫 Teacher Quality", ["Poor", "Average", "Good"])
-        school     = st.selectbox("🏛️ School Type", ["Public", "Private"])
-        internet   = st.selectbox("🌐 Internet Access", ["Yes", "No"])
-        st.markdown('</div>', unsafe_allow_html=True)
+    # ── Inputs Form ──
+    with st.form("student_prediction_form"):
+        col1, col2 = st.columns(2, gap="large")
+        with col1:
+            st.markdown('<div class="input-card"><div class="input-section-title">📐 Academic Inputs</div>', unsafe_allow_html=True)
+            hours      = st.slider("📚 Hours Studied (per day)", 0, 24, 5)
+            attendance = st.slider("🏫 Attendance (%)", 0, 100, 75)
+            previous   = st.slider("📋 Previous Score", 0, 100, 60)
+            sleep      = st.slider("😴 Sleep Hours", 0, 12, 7)
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="input-card"><div class="input-section-title">🎛️ Environmental Factors</div>', unsafe_allow_html=True)
+            motivation = st.selectbox("💪 Motivation Level", ["Low", "Medium", "High"])
+            teacher    = st.selectbox("👨‍🏫 Teacher Quality", ["Poor", "Average", "Good"])
+            school     = st.selectbox("🏛️ School Type", ["Public", "Private"])
+            internet   = st.selectbox("🌐 Internet Access", ["Yes", "No"])
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("🚀  Predict My Score"):
-        data = {
-            "Hours_Studied": hours, "Attendance": attendance,
-            "Previous_Scores": previous, "Sleep_Hours": sleep,
-            "Motivation_Level": motivation, "Teacher_Quality": teacher,
-            "School_Type": school, "Internet_Access": internet
-        }
-        input_df = pd.DataFrame([data])
-        input_df = pd.get_dummies(input_df)
-        input_df = input_df.reindex(columns=columns, fill_value=0)
-        prediction  = model.predict(input_df)
-        final_score = max(40, min(100, int(round(prediction[0]))))
+        predict_btn = st.form_submit_button("🚀  Predict My Score", use_container_width=True)
 
-        grade  = ("A+" if final_score>=90 else "A" if final_score>=80 else
-                  "B"  if final_score>=70 else "C" if final_score>=60 else "D")
-        remark = ("Outstanding! 🌟" if final_score>=90 else "Excellent! 🎉" if final_score>=80 else
-                  "Good Job! 👍"    if final_score>=70 else "Keep Going! 💪" if final_score>=60 else
-                  "Need Improvement 📖")
+    if predict_btn or "last_score" in profile:
+        if predict_btn:
+            data = {
+                "Hours_Studied": hours, "Attendance": attendance,
+                "Previous_Scores": previous, "Sleep_Hours": sleep,
+                "Motivation_Level": motivation, "Teacher_Quality": teacher,
+                "School_Type": school, "Internet_Access": internet
+            }
+            input_df = pd.DataFrame([data])
+            input_df = pd.get_dummies(input_df)
+            input_df = input_df.reindex(columns=columns, fill_value=0)
+            prediction  = model.predict(input_df)
+            final_score = max(40, min(100, int(round(prediction[0]))))
 
-        students[username]["last_score"]     = final_score
-        students[username]["last_grade"]     = grade
-        students[username]["last_predicted"] = datetime.now().strftime("%d %b %Y, %I:%M %p")
-        save_json("students.json", students)
+            grade  = ("A+" if final_score>=90 else "A" if final_score>=80 else
+                      "B"  if final_score>=70 else "C" if final_score>=60 else "D")
+            remark = ("Outstanding! 🌟" if final_score>=90 else "Excellent! 🎉" if final_score>=80 else
+                      "Good Job! 👍"    if final_score>=70 else "Keep Going! 💪" if final_score>=60 else
+                      "Need Improvement 📖")
+
+            if username not in students:
+                students[username] = {}
+            students[username]["last_score"]     = final_score
+            students[username]["last_grade"]     = grade
+            students[username]["last_remark"]    = remark
+            students[username]["last_predicted"] = datetime.now().strftime("%d %b %Y, %I:%M %p")
+            students[username]["last_inputs"]    = data
+            save_json("students.json", students)
+        else:
+            final_score = profile["last_score"]
+            grade = profile.get("last_grade", "—")
+            remark = profile.get("last_remark", "—")
+            saved_inputs = profile.get("last_inputs", {})
+            hours = saved_inputs.get("Hours_Studied", 5)
+            attendance = saved_inputs.get("Attendance", 75)
+            previous = saved_inputs.get("Previous_Scores", 60)
+            sleep = saved_inputs.get("Sleep_Hours", 7)
+            motivation = saved_inputs.get("Motivation_Level", "Medium")
+            teacher = saved_inputs.get("Teacher_Quality", "Average")
+            school = saved_inputs.get("School_Type", "Public")
+            internet = saved_inputs.get("Internet_Access", "Yes")
 
         st.markdown(f"""
         <div class="score-card">
@@ -445,7 +442,6 @@ def show_student_dashboard():
                 "Value":  [hours, attendance, previous, sleep],
                 "Max":    [24, 100, 100, 12]
             })
-            chart_data["Percent"] = (chart_data["Value"] / chart_data["Max"] * 100).round(1)
             bar_fig = px.bar(chart_data, x="Metric", y="Value",
                 color="Value", color_continuous_scale=["#1a3a8f","#0072ff","#00ffd5"],
                 title="Your Key Metrics Breakdown", text="Value")
@@ -459,33 +455,28 @@ def show_student_dashboard():
             st.plotly_chart(bar_fig, use_container_width=True)
 
         st.write("")
+        pdf_bytes = None
         with st.spinner("Generating PDF report..."):
-            from app import generate_pdf_report
-            pdf_bytes = generate_pdf_report(
-                username=username, student_profile=profile,
-                hours=hours, attendance=attendance, previous=previous, sleep=sleep,
-                motivation=motivation, teacher=teacher, school=school, internet=internet,
-                final_score=final_score, grade=grade, remark=remark
-            )
-        filename = f"EduPredict_{username}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-        st.download_button(label="📄  Download PDF Report", data=pdf_bytes,
-            file_name=filename, mime="application/pdf", use_container_width=True)
-# ─────────────────────────────────────────
-#  parent_dashboard.py
-#  Usage in app.py: from parent_dashboard import show_parent_dashboard
-# ─────────────────────────────────────────
+            try:
+                from app import generate_pdf_report
+                pdf_bytes = generate_pdf_report(
+                    username=username, student_profile=profile,
+                    hours=hours, attendance=attendance, previous=previous, sleep=sleep,
+                    motivation=motivation, teacher=teacher, school=school, internet=internet,
+                    final_score=final_score, grade=grade, remark=remark
+                )
+            except Exception as e:
+                st.warning(f"Could not generate PDF report: {e}")
 
-import streamlit as st
-import joblib
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime
-import json
-import os
+        if pdf_bytes:
+            filename = f"EduPredict_{username}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+            st.download_button(label="📄  Download PDF Report", data=pdf_bytes,
+                file_name=filename, mime="application/pdf", use_container_width=True, key="student_dl_btn")
 
-from profile_widget import show_profile_widget, load_json, save_json
 
+# ─────────────────────────────────────────────────────────────────────────
+#  PART 3: PARENT PORTAL DASHBOARD (Originally parent_dashboard.py)
+# ─────────────────────────────────────────────────────────────────────────
 
 def show_parent_dashboard():
     username    = st.session_state.username
@@ -495,8 +486,12 @@ def show_parent_dashboard():
     parent_info = parents.get(username, {})
     children    = parent_info.get("children", [])
 
-    model   = joblib.load("student_model.pkl")
-    columns = joblib.load("model_columns.pkl")
+    try:
+        model   = joblib.load("student_model.pkl")
+        columns = joblib.load("model_columns.pkl")
+    except Exception as e:
+        st.error(f"Failed to load model files: {e}")
+        return
 
     show_profile_widget()
 
@@ -516,7 +511,7 @@ def show_parent_dashboard():
         grade = cp.get("last_grade", "—")
         st.sidebar.caption(f"🎓 {cp.get('full_name', child)} — Score: {last} ({grade})")
     st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
+    if st.sidebar.button("🚪 Logout", key="parent_logout"):
         for k in ["logged_in", "username", "user_role"]:
             st.session_state[k] = False if k == "logged_in" else ""
         st.rerun()
@@ -569,9 +564,10 @@ def show_parent_dashboard():
                     parents[username] = {"children": [], "full_name": username, "relation": "Guardian"}
                 parents[username]["children"].append(new_child)
                 save_json("parents.json", parents)
-                if new_child in students:
-                    students[new_child]["parent_username"] = username
-                    save_json("students.json", students)
+                if new_child not in students:
+                    students[new_child] = {}
+                students[new_child]["parent_username"] = username
+                save_json("students.json", students)
                 st.success(f"✅ {students.get(new_child, {}).get('full_name', new_child)} linked successfully!")
                 st.rerun()
 
@@ -617,23 +613,27 @@ def show_parent_dashboard():
     st.markdown("### 🔮 Run a New Prediction for This Child")
     st.caption("As a parent, you can run a prediction by entering your child's academic details:")
 
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        st.markdown('<div class="input-card"><div class="input-section-title">📐 Academic Inputs</div>', unsafe_allow_html=True)
-        hours      = st.slider("📚 Hours Studied (per day)", 0, 24, 5, key=f"p_hours_{selected_child}")
-        attendance = st.slider("🏫 Attendance (%)", 0, 100, 75,       key=f"p_att_{selected_child}")
-        previous   = st.slider("📋 Previous Score", 0, 100, 60,       key=f"p_prev_{selected_child}")
-        sleep      = st.slider("😴 Sleep Hours", 0, 12, 7,            key=f"p_sleep_{selected_child}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="input-card"><div class="input-section-title">🎛️ Environmental Factors</div>', unsafe_allow_html=True)
-        motivation = st.selectbox("💪 Motivation Level", ["Low","Medium","High"], key=f"p_mot_{selected_child}")
-        teacher    = st.selectbox("👨‍🏫 Teacher Quality", ["Poor","Average","Good"], key=f"p_tq_{selected_child}")
-        school_sel = st.selectbox("🏛️ School Type",      ["Public","Private"],     key=f"p_sc_{selected_child}")
-        internet   = st.selectbox("🌐 Internet Access",   ["Yes","No"],             key=f"p_net_{selected_child}")
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Form Container
+    with st.form(f"parent_predict_form_{selected_child}"):
+        col1, col2 = st.columns(2, gap="large")
+        with col1:
+            st.markdown('<div class="input-card"><div class="input-section-title">📐 Academic Inputs</div>', unsafe_allow_html=True)
+            hours      = st.slider("📚 Hours Studied (per day)", 0, 24, 5, key=f"p_hours_{selected_child}")
+            attendance = st.slider("🏫 Attendance (%)", 0, 100, 75,       key=f"p_att_{selected_child}")
+            previous   = st.slider("📋 Previous Score", 0, 100, 60,       key=f"p_prev_{selected_child}")
+            sleep      = st.slider("😴 Sleep Hours", 0, 12, 7,             key=f"p_sleep_{selected_child}")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="input-card"><div class="input-section-title">🎛️ Environmental Factors</div>', unsafe_allow_html=True)
+            motivation = st.selectbox("💪 Motivation Level", ["Low","Medium","High"], key=f"p_mot_{selected_child}")
+            teacher    = st.selectbox("👨‍🏫 Teacher Quality", ["Poor","Average","Good"], key=f"p_tq_{selected_child}")
+            school_sel = st.selectbox("🏛️ School Type",      ["Public","Private"],     key=f"p_sc_{selected_child}")
+            internet   = st.selectbox("🌐 Internet Access",   ["Yes","No"],              key=f"p_net_{selected_child}")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button(f"🚀  Predict Score for {child_profile.get('full_name', selected_child)}", key=f"predict_{selected_child}"):
+        predict_btn = st.form_submit_button(f"🚀  Predict Score for {child_profile.get('full_name', selected_child)}", use_container_width=True)
+
+    if predict_btn:
         data = {
             "Hours_Studied": hours, "Attendance": attendance,
             "Previous_Scores": previous, "Sleep_Hours": sleep,
@@ -652,9 +652,13 @@ def show_parent_dashboard():
                   "Good Job! 👍"    if final_score>=70 else "Keep Going! 💪" if final_score>=60 else
                   "Need Improvement 📖")
 
+        if selected_child not in students:
+            students[selected_child] = {}
         students[selected_child]["last_score"]     = final_score
         students[selected_child]["last_grade"]     = grade
+        students[selected_child]["last_remark"]    = remark
         students[selected_child]["last_predicted"] = datetime.now().strftime("%d %b %Y, %I:%M %p")
+        students[selected_child]["last_inputs"]    = data
         save_json("students.json", students)
 
         st.markdown(f"""
@@ -705,15 +709,21 @@ def show_parent_dashboard():
             st.plotly_chart(bar_fig, use_container_width=True)
 
         st.write("")
+        pdf_bytes = None
         with st.spinner("Generating PDF report..."):
-            from app import generate_pdf_report
-            pdf_bytes = generate_pdf_report(
-                username=selected_child, student_profile=child_profile,
-                hours=hours, attendance=attendance, previous=previous, sleep=sleep,
-                motivation=motivation, teacher=teacher, school=school_sel, internet=internet,
-                final_score=final_score, grade=grade, remark=remark
-            )
-        filename = f"EduPredict_{selected_child}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-        st.download_button(label="📄  Download PDF Report", data=pdf_bytes,
-            file_name=filename, mime="application/pdf",
-            use_container_width=True, key=f"dl_{selected_child}")
+            try:
+                from app import generate_pdf_report
+                pdf_bytes = generate_pdf_report(
+                    username=selected_child, student_profile=child_profile,
+                    hours=hours, attendance=attendance, previous=previous, sleep=sleep,
+                    motivation=motivation, teacher=teacher, school=school_sel, internet=internet,
+                    final_score=final_score, grade=grade, remark=remark
+                )
+            except Exception as e:
+                st.warning(f"Could not generate PDF report: {e}")
+                
+        if pdf_bytes:
+            filename = f"EduPredict_{selected_child}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+            st.download_button(label="📄  Download PDF Report", data=pdf_bytes,
+                file_name=filename, mime="application/pdf",
+                use_container_width=True, key=f"dl_{selected_child}")
