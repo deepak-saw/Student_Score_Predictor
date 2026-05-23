@@ -1,16 +1,14 @@
+from profile_widget import show_profile_widget
+from student_dashboard import show_student_dashboard
+from parent_dashboard import show_parent_dashboard
 # ─────────────────────────────────────────
-#  app_part1.py — ALL IMPORTS & HELPERS
+#  profile_widget.py
+#  Usage in app.py: from profile_widget import show_profile_widget
 # ─────────────────────────────────────────
 
 import streamlit as st
-import joblib
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime
 import json
 import os
-import io
 
 
 def load_json(path):
@@ -22,33 +20,7 @@ def load_json(path):
 def save_json(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
-        # ─────────────────────────────────────────
-#  app_part2.py — PROFILE WIDGET
-#  (profile_widget.py replacement)
-#  Usage: from app_part2 import show_profile_widget
-# ─────────────────────────────────────────
 
-import streamlit as st
-import json
-import os
-
-
-# ── Helpers ──────────────────────────────
-
-def load_json(path):
-    if not os.path.exists(path):
-        return {}
-    with open(path, "r") as f:
-        return json.load(f)
-
-def save_json(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-
-
-# ─────────────────────────────────────────
-#  CSS
-# ─────────────────────────────────────────
 
 PROFILE_CSS = """
 <style>
@@ -117,10 +89,6 @@ PROFILE_CSS = """
 """
 
 
-# ─────────────────────────────────────────
-#  Main render function
-# ─────────────────────────────────────────
-
 def show_profile_widget():
     st.markdown(PROFILE_CSS, unsafe_allow_html=True)
 
@@ -167,7 +135,7 @@ def show_profile_widget():
     if st.session_state.profile_open:
         with st.container():
             badge_class = "badge-student" if role == "student" else "badge-parent"
-            badge_label = "Student" if role == "student" else "Parent"
+            badge_label = "Student"       if role == "student" else "Parent"
 
             if role == "student":
                 info_rows = f"""
@@ -231,10 +199,6 @@ def show_profile_widget():
         """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────
-#  Edit Profile Modal
-# ─────────────────────────────────────────
-
 def _show_edit_modal(username, role, profile, students, parents):
     st.markdown("""
     <style>
@@ -286,7 +250,6 @@ def _show_edit_modal(username, role, profile, students, parents):
             if cancel_btn:
                 st.session_state.edit_profile_open = False
                 st.rerun()
-
     else:
         with st.form("edit_parent_form"):
             c1, c2 = st.columns(2)
@@ -320,8 +283,8 @@ def _show_edit_modal(username, role, profile, students, parents):
 
     st.markdown('</div>', unsafe_allow_html=True)
 # ─────────────────────────────────────────
-#  app_part3.py — STUDENT & PARENT DASHBOARDS
-#  Usage: from app_part3 import show_student_dashboard, show_parent_dashboard
+#  student_dashboard.py
+#  Usage in app.py: from student_dashboard import show_student_dashboard
 # ─────────────────────────────────────────
 
 import streamlit as st
@@ -333,12 +296,8 @@ from datetime import datetime
 import json
 import os
 
-from app_part2 import show_profile_widget, load_json, save_json
+from profile_widget import show_profile_widget, load_json, save_json
 
-
-# ═══════════════════════════════════════════════
-#  STUDENT DASHBOARD
-# ═══════════════════════════════════════════════
 
 def show_student_dashboard():
     username = st.session_state.username
@@ -381,7 +340,6 @@ def show_student_dashboard():
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Profile Card ──
     if profile:
         st.markdown(f"""
         <div class="profile-card">
@@ -400,24 +358,20 @@ def show_student_dashboard():
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown("""<div class="kpi-card"><div class="kpi-icon">🧠</div>
-            <div class="kpi-label">AI Prediction</div><div class="kpi-sub">ML-powered engine</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">AI Prediction</div><div class="kpi-sub">ML-powered engine</div></div>""", unsafe_allow_html=True)
     with k2:
         st.markdown("""<div class="kpi-card"><div class="kpi-icon">📊</div>
-            <div class="kpi-label">Visual Analytics</div><div class="kpi-sub">Charts & graphs</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">Visual Analytics</div><div class="kpi-sub">Charts & graphs</div></div>""", unsafe_allow_html=True)
     with k3:
         st.markdown("""<div class="kpi-card"><div class="kpi-icon">🎯</div>
-            <div class="kpi-label">95% Accuracy</div><div class="kpi-sub">High precision model</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">95% Accuracy</div><div class="kpi-sub">High precision model</div></div>""", unsafe_allow_html=True)
     with k4:
         st.markdown("""<div class="kpi-card"><div class="kpi-icon">⚡</div>
-            <div class="kpi-label">Instant Results</div><div class="kpi-sub">Under 1 second</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">Instant Results</div><div class="kpi-sub">Under 1 second</div></div>""", unsafe_allow_html=True)
 
     st.write("")
 
-    # ── Input Section ──
+    # ── Inputs ──
     col1, col2 = st.columns(2, gap="large")
     with col1:
         st.markdown('<div class="input-card"><div class="input-section-title">📐 Academic Inputs</div>', unsafe_allow_html=True)
@@ -487,7 +441,6 @@ def show_student_dashboard():
             fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 font_color='#dce3f0', height=320, margin=dict(t=50,b=20,l=30,r=30))
             st.plotly_chart(fig, use_container_width=True)
-
         with r2:
             chart_data = pd.DataFrame({
                 "Metric": ["Study Hours","Attendance","Prev Score","Sleep Hours"],
@@ -519,11 +472,22 @@ def show_student_dashboard():
         filename = f"EduPredict_{username}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
         st.download_button(label="📄  Download PDF Report", data=pdf_bytes,
             file_name=filename, mime="application/pdf", use_container_width=True)
+# ─────────────────────────────────────────
+#  parent_dashboard.py
+#  Usage in app.py: from parent_dashboard import show_parent_dashboard
+# ─────────────────────────────────────────
 
+import streamlit as st
+import joblib
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime
+import json
+import os
 
-# ═══════════════════════════════════════════════
-#  PARENT DASHBOARD
-# ═══════════════════════════════════════════════
+from profile_widget import show_profile_widget, load_json, save_json
+
 
 def show_parent_dashboard():
     username    = st.session_state.username
@@ -573,24 +537,20 @@ def show_parent_dashboard():
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f"""<div class="kpi-card"><div class="kpi-icon">👨‍👩‍👧</div>
-            <div class="kpi-label">Linked Children</div><div class="kpi-sub">{len(children)} student(s)</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">Linked Children</div><div class="kpi-sub">{len(children)} student(s)</div></div>""", unsafe_allow_html=True)
     with k2:
         avg_score    = "—"
         valid_scores = [students[c]["last_score"] for c in children if c in students and "last_score" in students[c]]
         if valid_scores:
             avg_score = int(sum(valid_scores) / len(valid_scores))
         st.markdown(f"""<div class="kpi-card"><div class="kpi-icon">📊</div>
-            <div class="kpi-label">Avg Score</div><div class="kpi-sub">{avg_score} / 100</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">Avg Score</div><div class="kpi-sub">{avg_score} / 100</div></div>""", unsafe_allow_html=True)
     with k3:
         st.markdown("""<div class="kpi-card"><div class="kpi-icon">🧠</div>
-            <div class="kpi-label">AI Predictions</div><div class="kpi-sub">ML-powered engine</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">AI Predictions</div><div class="kpi-sub">ML-powered engine</div></div>""", unsafe_allow_html=True)
     with k4:
         st.markdown("""<div class="kpi-card"><div class="kpi-icon">⚡</div>
-            <div class="kpi-label">Live Results</div><div class="kpi-sub">Real-time data</div></div>""",
-            unsafe_allow_html=True)
+            <div class="kpi-label">Live Results</div><div class="kpi-sub">Real-time data</div></div>""", unsafe_allow_html=True)
 
     st.write("")
 
@@ -663,16 +623,16 @@ def show_parent_dashboard():
     with col1:
         st.markdown('<div class="input-card"><div class="input-section-title">📐 Academic Inputs</div>', unsafe_allow_html=True)
         hours      = st.slider("📚 Hours Studied (per day)", 0, 24, 5, key=f"p_hours_{selected_child}")
-        attendance = st.slider("🏫 Attendance (%)", 0, 100, 75, key=f"p_att_{selected_child}")
-        previous   = st.slider("📋 Previous Score", 0, 100, 60, key=f"p_prev_{selected_child}")
-        sleep      = st.slider("😴 Sleep Hours", 0, 12, 7, key=f"p_sleep_{selected_child}")
+        attendance = st.slider("🏫 Attendance (%)", 0, 100, 75,       key=f"p_att_{selected_child}")
+        previous   = st.slider("📋 Previous Score", 0, 100, 60,       key=f"p_prev_{selected_child}")
+        sleep      = st.slider("😴 Sleep Hours", 0, 12, 7,            key=f"p_sleep_{selected_child}")
         st.markdown('</div>', unsafe_allow_html=True)
     with col2:
         st.markdown('<div class="input-card"><div class="input-section-title">🎛️ Environmental Factors</div>', unsafe_allow_html=True)
         motivation = st.selectbox("💪 Motivation Level", ["Low","Medium","High"], key=f"p_mot_{selected_child}")
         teacher    = st.selectbox("👨‍🏫 Teacher Quality", ["Poor","Average","Good"], key=f"p_tq_{selected_child}")
-        school_sel = st.selectbox("🏛️ School Type", ["Public","Private"], key=f"p_sc_{selected_child}")
-        internet   = st.selectbox("🌐 Internet Access", ["Yes","No"], key=f"p_net_{selected_child}")
+        school_sel = st.selectbox("🏛️ School Type",      ["Public","Private"],     key=f"p_sc_{selected_child}")
+        internet   = st.selectbox("🌐 Internet Access",   ["Yes","No"],             key=f"p_net_{selected_child}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button(f"🚀  Predict Score for {child_profile.get('full_name', selected_child)}", key=f"predict_{selected_child}"):
@@ -728,7 +688,6 @@ def show_parent_dashboard():
             fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 font_color='#dce3f0', height=320, margin=dict(t=50,b=20,l=30,r=30))
             st.plotly_chart(fig, use_container_width=True)
-
         with r2:
             chart_data = pd.DataFrame({
                 "Metric": ["Study Hours","Attendance","Prev Score","Sleep Hours"],
@@ -760,4 +719,3 @@ def show_parent_dashboard():
         st.download_button(label="📄  Download PDF Report", data=pdf_bytes,
             file_name=filename, mime="application/pdf",
             use_container_width=True, key=f"dl_{selected_child}")
-
