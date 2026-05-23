@@ -1,6 +1,4 @@
-from profile_widget import show_profile_widget
-from student_dashboard import show_student_dashboard
-from parent_dashboard import show_parent_dashboard
+
 # ─────────────────────────────────────────
 #  profile_widget.py
 #  Usage in app.py: from profile_widget import show_profile_widget
