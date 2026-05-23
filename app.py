@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 # ─────────────────────────────────────────────────────────────────────────
-#  PART 1: COMMON UTILITIES & PROFILE WIDGET (Originally profile_widget.py)
+#  1. कॉमन यूटिलिटीज और JSON हैंडलिंग (Common Utilities & JSON Handling)
 # ─────────────────────────────────────────────────────────────────────────
 
 def load_json(path):
@@ -21,6 +21,10 @@ def save_json(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
 
+
+# ─────────────────────────────────────────────────────────────────────────
+#  2. प्रोफाइल विजेट और थीम सेटिंग्स (Profile Widget & CSS Styles)
+# ─────────────────────────────────────────────────────────────────────────
 
 PROFILE_CSS = """
 <style>
@@ -266,7 +270,7 @@ def _show_edit_modal(username, role, profile, students, parents):
 
 
 # ─────────────────────────────────────────────────────────────────────────
-#  PART 2: STUDENT DASHBOARD PORTAL (Originally student_dashboard.py)
+#  3. छात्र डैशबोर्ड (Student Dashboard Function)
 # ─────────────────────────────────────────────────────────────────────────
 
 def show_student_dashboard():
@@ -475,7 +479,7 @@ def show_student_dashboard():
 
 
 # ─────────────────────────────────────────────────────────────────────────
-#  PART 3: PARENT PORTAL DASHBOARD (Originally parent_dashboard.py)
+#  4. अभिभावक डैशबोर्ड (Parent Dashboard Function)
 # ─────────────────────────────────────────────────────────────────────────
 
 def show_parent_dashboard():
@@ -613,7 +617,7 @@ def show_parent_dashboard():
     st.markdown("### 🔮 Run a New Prediction for This Child")
     st.caption("As a parent, you can run a prediction by entering your child's academic details:")
 
-    # Form Container
+    # Inputs Form Container
     with st.form(f"parent_predict_form_{selected_child}"):
         col1, col2 = st.columns(2, gap="large")
         with col1:
